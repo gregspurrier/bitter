@@ -47,27 +47,27 @@
               (gen/tuple (gen/return n)
                          (gen/vector (gen/resize n gen-op))))))
 
-(defspec acts-like-a-set-wrt-count
+(defspec act-like-a-set-wrt-count
   (prop/for-all [[n bits] gen-bit-sequence-test-scenario]
                 (= (count (set bits))
                    (count (bitmap n bits)))))
 
-(defspec acts-like-a-set-wrt-seq
+(defspec act-like-a-set-wrt-seq
   (prop/for-all [[n bits] gen-bit-sequence-test-scenario]
                 (= (set (seq (set bits)))
                    (set (seq (bitmap n bits))))))
 
-(defspec acts-like-a-set-wrt-conj
+(defspec act-like-a-set-wrt-conj
   (prop/for-all [[n first-bits more-bits] gen-dual-bit-sequence-test-scenario]
                 (= (sort (apply conj (set first-bits) more-bits))
                    (sort (apply conj (bitmap n first-bits) more-bits)))))
 
-(defspec acts-like-a-set-wrt-into
+(defspec act-like-a-set-wrt-into
   (prop/for-all [[n first-bits more-bits] gen-dual-bit-sequence-test-scenario]
                 (= (sort (into (set first-bits) more-bits))
                    (sort (into (bitmap n first-bits) more-bits)))))
 
-(defspec bitmaps-are-equiv-iff-sizes-and-bits-match
+(defspec are-equiv-iff-sizes-and-bits-match
   (prop/for-all [[n bits] gen-small-bit-sequence-test-scenario
                  [m other-bits] gen-small-bit-sequence-test-scenario]
                 (let [bm1 (bitmap n bits)
