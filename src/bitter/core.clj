@@ -48,6 +48,23 @@
 (defprotocol PBitmap
   (capacity [x]))
 
+(declare create-persistent-bitmap)
+
+;; size: the number of bit positions represented by the bitmap
+;; words: a vector of longs containing the bitmap's bits
+(deftype TransientBitmap [size words]
+  clojure.lang.ITransientCollection
+  (conj [this n]
+    {:pre [(< -1 n size)]}
+    (let [^long n n
+          word-index (n->word-index n)]
+      (assoc! words word-index (bit-set ^long (get words word-index)
+                                      (n->bit-index n))))
+    this)
+
+  (persistent [_]
+    (create-persistent-bitmap nil size (persistent! words))))
+
 ;; _meta: metadata associated with the bitmap
 ;; size: the number of bit positions represented by the bitmap
 ;; words: a vector of longs containing the bitmap's bits
@@ -82,15 +99,28 @@
          ;; seq always returns the elements in order
          (= (seq this) (seq o))))
 
+  clojure.lang.IEditableCollection
+  (asTransient [_]
+    (TransientBitmap. size (transient words)))
+
+  clojure.lang.IObj
+  (meta [_] _meta)
+
+  (withMeta [_ m]
+    (PersistentBitmap. m size words))
+
   PBitmap
   (capacity [_] size))
 
+(defn- create-persistent-bitmap [metadata capacity words]
+  (PersistentBitmap. metadata capacity words))
+
 (defn bitmap
-  "Ceates a new persistent bitmap of n bits"
+  "Creates a new persistent bitmap with capacity for n bits"
   ([^long n]
      {:pre [(> n 0)]}
      (let [num-words (inc (n->word-index (dec n)))
            words (vec (repeat num-words 0))]
-       (PersistentBitmap. nil n words)))
+       (create-persistent-bitmap nil n words)))
   ([n bits]
      (into (bitmap n) bits)))
