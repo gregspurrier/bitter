@@ -47,6 +47,17 @@
               (gen/tuple (gen/return n)
                          (gen/vector (gen/resize n gen-op))))))
 
+(defspec have-no-bits-set-when-created-without-initial-bits
+  (prop/for-all [n gen-bitmap-size]
+                (let [bm (bitmap n)]
+                  (not-any? #(bitmap-test bm %) (range n)))))
+
+(defspec have-exactly-the-initial-bits-set-when-created-with-initial-bits
+  (prop/for-all [[n bits] gen-bit-sequence-test-scenario]
+                (let [bm (bitmap n bits)]
+                  (= (set bits)
+                     (set (filter #(bitmap-test bm %) (range n)))))))
+
 (defspec act-like-a-set-wrt-count
   (prop/for-all [[n bits] gen-bit-sequence-test-scenario]
                 (= (count (set bits))

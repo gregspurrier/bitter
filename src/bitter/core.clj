@@ -46,7 +46,8 @@
     (persistent! accum)))
 
 (defprotocol PBitmap
-  (capacity [x]))
+  (capacity [x])
+  (bitmap-test [x n]))
 
 (declare create-persistent-bitmap)
 
@@ -110,7 +111,14 @@
     (PersistentBitmap. m size words))
 
   PBitmap
-  (capacity [_] size))
+  (capacity [_] size)
+
+  (bitmap-test [_ n]
+    {:pre [(< -1 n size)]}
+    (let [^long n n
+          word-index (n->word-index n)
+          bit-index (n->bit-index n)]
+      (bit-test (words word-index) bit-index))))
 
 (defn- create-persistent-bitmap [metadata capacity words]
   (PersistentBitmap. metadata capacity words))
