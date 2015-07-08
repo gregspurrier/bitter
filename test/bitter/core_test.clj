@@ -28,6 +28,12 @@
               (gen/tuple (gen/return n)
                          (gen/resize n gen-bit-positions)))))
 
+(def gen-small-bit-sequence-test-scenario
+  (gen/bind (gen/choose 1 5)
+            (fn [n]
+              (gen/tuple (gen/return n)
+                         (gen/resize n gen-bit-positions)))))
+
 (def gen-dual-bit-sequence-test-scenario
   (gen/bind gen-bitmap-size
             (fn [n]
@@ -60,3 +66,13 @@
   (prop/for-all [[n first-bits more-bits] gen-dual-bit-sequence-test-scenario]
                 (= (sort (into (set first-bits) more-bits))
                    (sort (into (bitmap n first-bits) more-bits)))))
+
+(defspec bitmaps-are-equiv-iff-sizes-and-bits-match
+  (prop/for-all [[n bits] gen-small-bit-sequence-test-scenario
+                 [m other-bits] gen-small-bit-sequence-test-scenario]
+                (let [bm1 (bitmap n bits)
+                      bm2 (bitmap m other-bits)]
+                  (if (and (= n m)
+                           (= (set bits) (set other-bits)))
+                    (= bm1 bm2)
+                    (not= bm1 bm2)))))

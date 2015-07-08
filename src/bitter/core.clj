@@ -45,6 +45,9 @@
         (recur (inc index))))
     (persistent! accum)))
 
+(defprotocol PBitmap
+  (capacity [x]))
+
 ;; _meta: metadata associated with the bitmap
 ;; size: the number of bit positions represented by the bitmap
 ;; words: a vector of longs containing the bitmap's bits
@@ -57,8 +60,10 @@
   (seq [_]
     (clojure.core/seq (get-elements words)))
 
-  ;; TODO
-  (count [this])
+  ;; For IPersistentCollections that do not implement Counted, core.clojure/count
+  ;; is implemented by iterating over the seq. The object's .count method is not
+  ;; used.
+  ;; (count [this])
 
   (cons [this n]
     {:pre [(< -1 n size)]}
@@ -71,8 +76,14 @@
   ;; TODO
   (empty [_])
 
-  ;; TODO
-  (equiv [_ o]))
+  (equiv [this o]
+    (and (instance? PersistentBitmap o)
+         (= size (capacity ^PersistentBitmap o))
+         ;; seq always returns the elements in order
+         (= (seq this) (seq o))))
+
+  PBitmap
+  (capacity [_] size))
 
 (defn bitmap
   "Ceates a new persistent bitmap of n bits"
