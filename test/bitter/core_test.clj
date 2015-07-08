@@ -22,6 +22,12 @@
                                                        [3 gen-binary-bitmap-op]
                                                        #_[1 gen-unary-bitmap-op]])))))
 
+(def gen-bit-sequence-test-scenario
+  (gen/bind gen-bitmap-size
+            (fn [n]
+              (gen/tuple (gen/return n)
+                         (gen/resize n gen-bit-positions)))))
+
 (def gen-dual-bit-sequence-test-scenario
   (gen/bind gen-bitmap-size
             (fn [n]
@@ -34,6 +40,16 @@
             (fn [n]
               (gen/tuple (gen/return n)
                          (gen/vector (gen/resize n gen-op))))))
+
+(defspec acts-like-a-set-wrt-count
+  (prop/for-all [[n bits] gen-bit-sequence-test-scenario]
+                (= (count (set bits))
+                   (count (bitmap n bits)))))
+
+(defspec acts-like-a-set-wrt-seq
+  (prop/for-all [[n bits] gen-bit-sequence-test-scenario]
+                (= (set (seq (set bits)))
+                   (set (seq (bitmap n bits))))))
 
 (defspec acts-like-a-set-wrt-conj
   (prop/for-all [[n first-bits more-bits] gen-dual-bit-sequence-test-scenario]
