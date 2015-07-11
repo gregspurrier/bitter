@@ -49,7 +49,7 @@
   (capacity [x])
   (bitmap-test [x n]))
 
-(declare create-persistent-bitmap)
+(declare bitmap create-persistent-bitmap)
 
 ;; size: the number of bit positions represented by the bitmap
 ;; words: a vector of longs containing the bitmap's bits
@@ -91,8 +91,8 @@
       (PersistentBitmap. _meta size (assoc words word-index
                                            (bit-set (words word-index) bit-index)))))
 
-  ;; TODO
-  (empty [_])
+  (empty [_]
+    (with-meta (bitmap size) _meta))
 
   (equiv [this o]
     (and (instance? PersistentBitmap o)
