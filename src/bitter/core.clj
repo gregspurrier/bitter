@@ -49,6 +49,23 @@
   (capacity [x])
   (bitmap-test [x n]))
 
+(defprotocol PBitmapInternal
+  (get-words [x]))
+
+(defprotocol PTransientBitmapOps
+  (bitmap-set! [x n])
+  (bitmap-clear! [x n])
+  (bitmap-and! [x y])
+  (bitmap-or! [x y])
+  (bitmap-xor! [x y]))
+
+(defprotocol PPersistentBitmapOps
+  (bitmap-set [x n])
+  (bitmap-clear [x n])
+  (bitmap-and [x y])
+  (bitmap-or [x y])
+  (bitmap-xor [x y]))
+
 (declare bitmap create-persistent-bitmap)
 
 ;; size: the number of bit positions represented by the bitmap
@@ -60,11 +77,62 @@
     (let [^long n n
           word-index (n->word-index n)]
       (assoc! words word-index (bit-set ^long (get words word-index)
-                                      (n->bit-index n))))
+                                        (n->bit-index n))))
     this)
 
   (persistent [_]
-    (create-persistent-bitmap nil size (persistent! words))))
+    (create-persistent-bitmap nil size (persistent! words)))
+
+  PBitmap
+  (bitmap-test [_ n]
+    {:pre [(< -1 n size)]}
+    (let [^long n n
+          word-index (n->word-index n)
+          bit-index (n->bit-index n)]
+      (bit-test (words word-index) bit-index)))
+
+  (capacity [_] size)
+
+  PBitmapInternal
+  (get-words [_] words)
+
+  PTransientBitmapOps
+  (bitmap-set! [this n]
+    (conj! this n))
+
+  (bitmap-clear! [this n]
+    {:pre [(< -1 n size)]}
+    (let [^long n n
+          word-index (n->word-index n)]
+      (assoc! words word-index (bit-clear ^long (get words word-index)
+                                          (n->bit-index n))))
+    this)
+
+  (bitmap-and! [this y]
+    {:pre [(= size (capacity y))]}
+    (let [other-words (get-words y)]
+      (dotimes [word-index (count words)]
+        (assoc! words word-index (bit-and ^long (get words word-index)
+                                          ^long (get other-words word-index)))))
+    this)
+
+  (bitmap-or! [this y]
+    {:pre [(= size (capacity y))]}
+    (let [other-words (get-words y)]
+      (dotimes [word-index (count words)]
+        (assoc! words word-index (bit-or ^long (get words word-index)
+                                         ^long (get other-words word-index)))))
+    this)
+
+  (bitmap-xor! [this y]
+    {:pre [(= size (capacity y))]}
+    (let [other-words (get-words y)]
+      (dotimes [word-index (count words)]
+        (assoc! words word-index (bit-xor ^long (get words word-index)
+                                          ^long (get other-words word-index)))))
+    this)
+)
+
 
 ;; _meta: metadata associated with the bitmap
 ;; size: the number of bit positions represented by the bitmap
@@ -111,14 +179,38 @@
     (PersistentBitmap. m size words))
 
   PBitmap
-  (capacity [_] size)
-
   (bitmap-test [_ n]
     {:pre [(< -1 n size)]}
     (let [^long n n
           word-index (n->word-index n)
           bit-index (n->bit-index n)]
-      (bit-test (words word-index) bit-index))))
+      (bit-test (words word-index) bit-index)))
+
+  (capacity [_] size)
+
+  PBitmapInternal
+  (get-words [_] words)
+
+  PPersistentBitmapOps
+  (bitmap-set [this n]
+    (conj this n))
+
+  (bitmap-clear [_ n]
+    {:pre [(< -1 n size)]}
+    (let [^long n n
+          word-index (n->word-index n)
+          bit-index (n->bit-index n)]
+      (PersistentBitmap. _meta size (assoc words word-index
+                                           (bit-clear (words word-index) bit-index)))))
+
+  (bitmap-and [this y]
+    (-> this transient (bitmap-and! y) persistent! (with-meta _meta)))
+
+  (bitmap-or [this y]
+    (-> this transient (bitmap-or! y) persistent! (with-meta _meta)))
+
+  (bitmap-xor [this y]
+    (-> this transient (bitmap-xor! y) persistent! (with-meta _meta))))
 
 (defn- create-persistent-bitmap [metadata capacity words]
   (PersistentBitmap. metadata capacity words))

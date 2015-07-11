@@ -1,5 +1,6 @@
 (ns bitter.core-test
-  (:require [clojure.test.check.clojure-test :refer [defspec]]
+  (:require [clojure.set :as set]
+            [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [bitter.core :refer :all]))
@@ -87,3 +88,40 @@
                            (= (set bits) (set other-bits)))
                     (= bm1 bm2)
                     (not= bm1 bm2)))))
+
+
+(defn op-operator [_ op-spec] (first op-spec))
+
+(defmulti apply-model-op #'op-operator)
+(defmethod apply-model-op :set [x [_ n]]
+  (conj x n))
+(defmethod apply-model-op :clear [x [_ n]]
+  (disj x n))
+(defmethod apply-model-op :and [x [_ bits]]
+  (set/intersection x (set bits)))
+(defmethod apply-model-op :or [x [_ bits]]
+  (set/union x (set bits)))
+(defmethod apply-model-op :xor [x [_ bits]]
+  (let [y (set bits)
+        x-and-y (set/intersection x y)]
+    (set/union (set/difference x x-and-y)
+               (set/difference y x-and-y))))
+
+(defmulti apply-bitmap-op #'op-operator)
+(defmethod apply-bitmap-op :set [x [_ n]]
+  (bitmap-set x n))
+(defmethod apply-bitmap-op :clear [x [_ n]]
+  (bitmap-clear x n))
+(defmethod apply-bitmap-op :and [x [_ bits]]
+  (bitmap-and x (bitmap (capacity x) bits)))
+(defmethod apply-bitmap-op :or [x [_ bits]]
+  (bitmap-or x (bitmap (capacity x) bits)))
+(defmethod apply-bitmap-op :xor [x [_ bits]]
+  (bitmap-xor x (bitmap (capacity x) bits)))
+
+(defspec match-set-based-model-for-all-bitmap-ops 1000
+  (prop/for-all [[n ops] gen-operator-test-scenario]
+                (let [model-result (reduce apply-model-op #{} ops)
+                      bitmap-result (reduce apply-bitmap-op (bitmap n) ops)]
+                  (= (seq (sort model-result))
+                     (seq bitmap-result)))))
