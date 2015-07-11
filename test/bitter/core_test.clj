@@ -21,7 +21,7 @@
 (def gen-op (gen/sized (fn [n]
                          (gen/resize n (gen/frequency [[2 gen-bitwise-bitmap-op]
                                                        [3 gen-binary-bitmap-op]
-                                                       #_[1 gen-unary-bitmap-op]])))))
+                                                       [1 gen-unary-bitmap-op]])))))
 
 (def gen-bit-sequence-test-scenario
   (gen/bind gen-bitmap-size
@@ -92,20 +92,26 @@
 
 (defn op-operator [_ op-spec] (first op-spec))
 
+(defn make-model [n]
+  [n #{}])
+
 (defmulti apply-model-op #'op-operator)
-(defmethod apply-model-op :set [x [_ n]]
-  (conj x n))
-(defmethod apply-model-op :clear [x [_ n]]
-  (disj x n))
-(defmethod apply-model-op :and [x [_ bits]]
-  (set/intersection x (set bits)))
-(defmethod apply-model-op :or [x [_ bits]]
-  (set/union x (set bits)))
-(defmethod apply-model-op :xor [x [_ bits]]
-  (let [y (set bits)
-        x-and-y (set/intersection x y)]
-    (set/union (set/difference x x-and-y)
-               (set/difference y x-and-y))))
+(defmethod apply-model-op :set [[capacity x] [_ n]]
+  [capacity (conj x n)])
+(defmethod apply-model-op :clear [[capacity x] [_ n]]
+  [capacity (disj x n)])
+(defmethod apply-model-op :and [[capacity x] [_ bits]]
+  [capacity (set/intersection x (set bits))])
+(defmethod apply-model-op :or [[capacity x] [_ bits]]
+  [capacity (set/union x (set bits))])
+(defmethod apply-model-op :xor [[capacity x] [_ bits]]
+  [capacity (let [y (set bits)
+                  x-and-y (set/intersection x y)]
+              (set/union (set/difference x x-and-y)
+                         (set/difference y x-and-y)))])
+(defmethod apply-model-op :not [[capacity x] [_]]
+  [capacity (let [all-bits (set (range 0 capacity))]
+              (set/difference all-bits x))])
 
 (defmulti apply-bitmap-op #'op-operator)
 (defmethod apply-bitmap-op :set [x [_ n]]
@@ -118,10 +124,12 @@
   (bitmap-or x (bitmap (capacity x) bits)))
 (defmethod apply-bitmap-op :xor [x [_ bits]]
   (bitmap-xor x (bitmap (capacity x) bits)))
+(defmethod apply-bitmap-op :not [x [_]]
+  (bitmap-not x))
 
 (defspec match-set-based-model-for-all-bitmap-ops 1000
   (prop/for-all [[n ops] gen-operator-test-scenario]
-                (let [model-result (reduce apply-model-op #{} ops)
+                (let [[_ model-result] (reduce apply-model-op (make-model n) ops)
                       bitmap-result (reduce apply-bitmap-op (bitmap n) ops)]
                   (= (seq (sort model-result))
                      (seq bitmap-result)))))

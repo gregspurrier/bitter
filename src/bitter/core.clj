@@ -57,20 +57,22 @@
   (bitmap-clear! [x n])
   (bitmap-and! [x y])
   (bitmap-or! [x y])
-  (bitmap-xor! [x y]))
+  (bitmap-xor! [x y])
+  (bitmap-not! [x]))
 
 (defprotocol PPersistentBitmapOps
   (bitmap-set [x n])
   (bitmap-clear [x n])
   (bitmap-and [x y])
   (bitmap-or [x y])
-  (bitmap-xor [x y]))
+  (bitmap-xor [x y])
+  (bitmap-not [x]))
 
 (declare bitmap create-persistent-bitmap)
 
 ;; size: the number of bit positions represented by the bitmap
 ;; words: a vector of longs containing the bitmap's bits
-(deftype TransientBitmap [size words]
+(deftype TransientBitmap [^long size words]
   clojure.lang.ITransientCollection
   (conj [this n]
     {:pre [(< -1 n size)]}
@@ -131,13 +133,23 @@
         (assoc! words word-index (bit-xor ^long (get words word-index)
                                           ^long (get other-words word-index)))))
     this)
-)
+
+  (bitmap-not! [this]
+    (let [top-bit (dec size)
+          top-word-index (n->word-index top-bit)
+          two-to-top-bit (bit-shift-left 1 (n->bit-index top-bit))
+          top-mask (bit-or two-to-top-bit (dec two-to-top-bit))]
+      (dotimes [word-index (count words)]
+        (assoc! words word-index (bit-not ^long (get words word-index))))
+      (assoc! words top-word-index (bit-and ^long (get words top-word-index) top-mask)))
+
+    this))
 
 
 ;; _meta: metadata associated with the bitmap
 ;; size: the number of bit positions represented by the bitmap
 ;; words: a vector of longs containing the bitmap's bits
-(deftype PersistentBitmap [_meta size words]
+(deftype PersistentBitmap [_meta ^long size words]
   java.util.Collection
   (toArray [_]
     (to-array (get-elements words)))
@@ -210,7 +222,10 @@
     (-> this transient (bitmap-or! y) persistent! (with-meta _meta)))
 
   (bitmap-xor [this y]
-    (-> this transient (bitmap-xor! y) persistent! (with-meta _meta))))
+    (-> this transient (bitmap-xor! y) persistent! (with-meta _meta)))
+
+  (bitmap-not [this]
+    (-> this transient bitmap-not! persistent! (with-meta _meta))))
 
 (defn- create-persistent-bitmap [metadata capacity words]
   (PersistentBitmap. metadata capacity words))
